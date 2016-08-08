@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(
-    name='autman',
+    name='manobra',
     packages=['app'],
     include_package_data=True,
     install_requires=[
