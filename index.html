@@ -1,0 +1,2429 @@
+<!doctype html>
+<html lang="pt-BR" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Liberação 04B1 - Procedimento Interativo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+        body {
+            box-sizing: border-box;
+        }
+        
+        .step-card {
+            transition: all 0.3s ease;
+        }
+        
+        .step-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .execute-btn {
+            transition: all 0.2s ease;
+        }
+        
+        .execute-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+        }
+        
+        .executing {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .status-indicator {
+            transition: all 0.3s ease;
+        }
+        
+        .completed {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+        
+        .executing-status {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+        
+        .pending {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+        }
+        
+        .disabled {
+            background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+        }
+        
+        .skipped {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        }
+        
+        .deferred {
+            background: linear-gradient(135deg, #a855f7, #9333ea);
+        }
+        
+        .progress-bar {
+            transition: width 0.5s ease;
+        }
+        
+        .step-number {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        }
+        
+        .paused {
+            opacity: 0.3;
+            pointer-events: none;
+            filter: grayscale(50%);
+            transition: all 0.3s ease;
+        }
+        
+        .pause-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .pause-overlay.active {
+            opacity: 1;
+        }
+    </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-gradient-to-br from-blue-50 to-indigo-100 font-sans"><!-- Pause Overlay -->
+  <div id="pauseOverlay" class="pause-overlay"></div>
+  <div class="min-h-full p-6"><!-- Header -->
+   <div class="max-w-6xl mx-auto mb-8">
+    <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200"><!-- Navigation Tabs -->
+     <div class="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg"><button onclick="switchPage('liberation')" id="liberationTab" class="flex-1 py-3 px-4 rounded-md font-semibold transition-all duration-200 bg-red-500 text-white"> 🔒 Liberação </button> <button onclick="switchPage('normalization')" id="normalizationTab" class="flex-1 py-3 px-4 rounded-md font-semibold transition-all duration-200 bg-gray-200 text-gray-600 hover:bg-gray-300"> 🔓 Normalização </button>
+     </div>
+     <div class="flex items-center justify-between mb-4">
+      <div>
+       <h1 class="text-3xl font-bold text-gray-800 mb-2" id="pageTitle">⚡ Procedimento de Liberação 04B1</h1>
+       <p class="text-gray-600" id="pageDescription">Procedimento de liberação elétrica - Execução sequencial</p>
+      </div>
+      <div class="text-right">
+       <div class="text-2xl font-bold text-indigo-600" id="progressText">
+        0/14
+       </div>
+       <div class="text-sm text-gray-500">
+        Etapas concluídas
+       </div>
+      </div>
+     </div><!-- Progress Bar -->
+     <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+      <div class="progress-bar bg-gradient-to-r from-red-500 to-red-600 h-3 rounded-full" style="width: 0%" id="progressBar"></div>
+     </div><!-- Status Legend -->
+     <div class="flex items-center space-x-6">
+      <div class="flex items-center">
+       <div class="w-3 h-3 bg-gray-500 rounded-full mr-2"></div><span class="text-sm text-gray-600">Pendente</span>
+      </div>
+      <div class="flex items-center">
+       <div class="w-3 h-3 bg-amber-500 rounded-full mr-2"></div><span class="text-sm text-gray-600">Executando</span>
+      </div>
+      <div class="flex items-center">
+       <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div><span class="text-sm text-gray-600">Concluído</span>
+      </div>
+      <div class="flex items-center">
+       <div class="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div><span class="text-sm text-gray-600">Pulado</span>
+      </div>
+      <div class="flex items-center">
+       <div class="w-3 h-3 bg-purple-500 rounded-full mr-2"></div><span class="text-sm text-gray-600">Adiado</span>
+      </div>
+      <div class="flex items-center">
+       <div class="w-3 h-3 bg-gray-300 rounded-full mr-2"></div><span class="text-sm text-gray-600">Bloqueado</span>
+      </div>
+     </div>
+    </div>
+   </div><!-- Information Header -->
+   <div class="max-w-6xl mx-auto mb-8" id="infoHeader"><!-- Content will be populated by JavaScript -->
+   </div><!-- Steps Grid -->
+   <div class="max-w-6xl mx-auto">
+    <div class="grid grid-cols-1 gap-6" id="stepsGrid"><!-- Steps will be populated by JavaScript -->
+    </div>
+   </div><!-- Control Panel -->
+   <div class="max-w-6xl mx-auto mt-8">
+    <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+     <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-gray-800">🎛️ Painel de Controle</h2>
+      <div class="flex space-x-3"><button onclick="resetProcedure()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"> 🔄 Reiniciar </button> <button onclick="togglePause()" id="pauseBtn" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors"> ⏸️ Pausar </button> <button onclick="skipCurrentStep()" id="skipBtn" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled> ⏭️ Pular Item </button> <button onclick="deferCurrentStep()" id="deferBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled> ⏰ Executar Depois </button> <button onclick="executeNext()" id="nextBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"> ▶️ Próxima Etapa </button>
+      </div>
+     </div>
+    </div>
+   </div><!-- Execution Log -->
+   <div class="max-w-6xl mx-auto mt-8">
+    <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+     <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-gray-800">📋 Log de Execução</h2><button onclick="exportLogToPDF()" id="exportBtn" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled> <span>📄</span> <span>Exportar PDF</span> </button>
+     </div>
+     <div id="executionLog" class="space-y-2 max-h-60 overflow-y-auto">
+      <p class="text-gray-500 italic">Aguardando início do procedimento...</p>
+     </div>
+    </div>
+   </div><!-- Signature Section -->
+   <div class="max-w-6xl mx-auto mt-8">
+    <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+     <h2 class="text-xl font-bold text-gray-800 mb-6">✍️ Assinatura e Data</h2>
+     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div><label class="block text-sm font-semibold text-gray-600 mb-2">Assinatura do Responsável:</label>
+       <div class="border-b-2 border-gray-300 pb-2 mb-4" style="min-height: 40px;"></div>
+      </div>
+      <div><label class="block text-sm font-semibold text-gray-600 mb-2">Data de Execução:</label>
+       <div class="border-b-2 border-gray-300 pb-2 mb-4 text-center" style="min-height: 40px;"><span class="text-gray-400">___/___/______</span>
+       </div>
+      </div>
+     </div>
+    </div>
+   </div><!-- Footer -->
+   <footer class="max-w-6xl mx-auto mt-8">
+    <div class="bg-gray-50 rounded-2xl shadow-lg p-6 border border-gray-200">
+     <div class="flex items-center justify-between text-sm text-gray-600">
+      <div class="flex items-center space-x-4"><span class="font-semibold">RTM-CTM-04B1</span> <span>Ed.: 2</span> <span>28/09/2020</span>
+      </div>
+      <div class="flex items-center space-x-4"><span>Elaboração: Maria Amadélia Lopes</span> <span class="font-semibold" id="pageNumber">1/2</span>
+      </div>
+     </div>
+    </div>
+   </footer>
+  </div>
+  <script>
+        // API helper
+        async function callExecute(step, index) {
+            try {
+                const res = await fetch('/api/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ step, index })
+                });
+                const json = await res.json();
+                return json;
+            } catch (e) {
+                return { ok: false, error: String(e) };
+            }
+        }
+
+        // Steps data based on the liberation and normalization procedures
+        const steps = [
+            // LIBERAÇÃO
+            {
+                id: 1,
+                number: "1.1",
+                responsible: "CTM",
+                action: "Receber do responsável solicitação liberação 04B1",
+                icon: "📥",
+                duration: 2000,
+                phase: "LIBERAÇÃO"
+            },
+            {
+                id: 2,
+                number: "1.2",
+                responsible: "CTM",
+                action: "Solicitar COOS liberação 04B1",
+                icon: "📞",
+                duration: 2500,
+                phase: "LIBERAÇÃO"
+            },
+            {
+                id: 3,
+                number: "1.3",
+                responsible: "COOS/CTM",
+                action: "Bloquear comando elétrico 34F9-1",
+                icon: "🔒",
+                duration: 3000,
+                phase: "LIBERAÇÃO"
+            },
+            {
+                id: 4,
+                number: "1.4",
+                responsible: "COOS",
+                action: "Solicitar COSR-NE liberação 04B1/CTM",
+                icon: "📋",
+                duration: 2500,
+                phase: "LIBERAÇÃO"
+            },
+            {
+                id: 5,
+                number: "1.5",
+                responsible: "COSR-NE",
+                action: "Autorizar COOS liberação 04B1/CTM",
+                icon: "✅",
+                duration: 2000,
+                phase: "LIBERAÇÃO"
+            },
+            {
+                id: 6,
+                number: "1.6",
+                responsible: "COOS",
+                action: "Autorizar CTM liberação 04B1",
+                icon: "🔓",
+                duration: 2000,
+                phase: "LIBERAÇÃO"
+            },
+            {
+                id: 7,
+                number: "1.7",
+                responsible: "CTM",
+                action: "Confirmar 14D1 fechado",
+                icon: "🔍",
+                duration: 2500,
+                phase: "LIBERAÇÃO"
+            },
+            {
+                id: 8,
+                number: "1.8",
+                responsible: "CTM",
+                action: "Fechar 34C3-2 e 34W1-2",
+                icon: "🔧",
+                duration: 3500,
+                phase: "LIBERAÇÃO",
+                multiIndex: [0,1]
+            },
+            {
+                id: 9,
+                number: "1.9",
+                responsible: "CTM",
+                action: "Abrir 34W1-1 e 34C3-1",
+                icon: "🔧",
+                duration: 3500,
+                phase: "LIBERAÇÃO",
+                multiIndex: [0,1]
+            },
+            {
+                id: 10,
+                number: "1.10",
+                responsible: "CTM",
+                action: "Abrir 14D1",
+                icon: "🔓",
+                duration: 3000,
+                phase: "LIBERAÇÃO"
+            },
+            {
+                id: 11,
+                number: "1.11",
+                responsible: "CTM",
+                action: "Abrir 34D1-1",
+                icon: "🔓",
+                duration: 3000,
+                phase: "LIBERAÇÃO"
+            },
+            {
+                id: 12,
+                number: "1.12",
+                responsible: "CTM",
+                action: "Bloquear comando elétrico 34D1-1, 34C3-1 e 34W1-1",
+                icon: "🔒",
+                duration: 4000,
+                phase: "LIBERAÇÃO"
+            },
+            {
+                id: 13,
+                number: "1.13",
+                responsible: "CTM",
+                action: "Entregar 04B1 isolado ao responsável",
+                icon: "🤝",
+                duration: 2500,
+                phase: "LIBERAÇÃO"
+            },
+            {
+                id: 14,
+                number: "1.14",
+                responsible: "CTM",
+                action: "Informar COOS conclusão liberação 04B1",
+                icon: "📢",
+                duration: 2000,
+                phase: "LIBERAÇÃO"
+            },
+            // NORMALIZAÇÃO
+            {
+                id: 15,
+                number: "2.1",
+                responsible: "CTM",
+                action: "Receber do responsável 04B1 livre para operação",
+                icon: "📥",
+                duration: 2000,
+                phase: "NORMALIZAÇÃO"
+            },
+            {
+                id: 16,
+                number: "2.2",
+                responsible: "CTM",
+                action: "Confirmar ausência de aterramento temporário",
+                icon: "🔍",
+                duration: 2500,
+                phase: "NORMALIZAÇÃO"
+            },
+            {
+                id: 17,
+                number: "2.3",
+                responsible: "CTM",
+                action: "Solicitar COOS normalização 04B1",
+                icon: "📞",
+                duration: 2500,
+                phase: "NORMALIZAÇÃO"
+            },
+            {
+                id: 18,
+                number: "2.4",
+                responsible: "COOS",
+                action: "Autorizar CTM iniciar normalização 04B1",
+                icon: "✅",
+                duration: 2000,
+                phase: "NORMALIZAÇÃO"
+            },
+            {
+                id: 19,
+                number: "2.5",
+                responsible: "CTM",
+                action: "Desbloquear comando elétrico 34W1-1, 34C3-1 e 34D1-1",
+                icon: "🔓",
+                duration: 4000,
+                phase: "NORMALIZAÇÃO"
+            },
+            {
+                id: 20,
+                number: "2.6",
+                responsible: "CTM",
+                action: "Fechar 34D1-1",
+                icon: "🔧",
+                duration: 3000,
+                phase: "NORMALIZAÇÃO"
+            },
+            {
+                id: 21,
+                number: "2.7",
+                responsible: "CTM",
+                action: "Informar COOS conclusão manobras",
+                icon: "📢",
+                duration: 2000,
+                phase: "NORMALIZAÇÃO"
+            },
+            {
+                id: 22,
+                number: "2.8",
+                responsible: "COOS",
+                action: "Informar COSR-NE disponibilidade 04B1/CTM",
+                icon: "📋",
+                duration: 2500,
+                phase: "NORMALIZAÇÃO"
+            },
+            {
+                id: 23,
+                number: "2.9",
+                responsible: "COSR-NE",
+                action: "Autorizar COOS normalização 04B1/CTM",
+                icon: "✅",
+                duration: 2000,
+                phase: "NORMALIZAÇÃO"
+            },
+            {
+                id: 24,
+                number: "2.10",
+                responsible: "COOS",
+                action: "Autorizar CTM normalização 04B1",
+                icon: "🔓",
+                duration: 2000,
+                phase: "NORMALIZAÇÃO"
+            },
+            {
+                id: 25,
+                number: "2.11",
+                responsible: "CTM",
+                action: "Fechar 14D1",
+                icon: "🔧",
+                duration: 3000,
+                phase: "NORMALIZAÇÃO"
+            },
+            {
+                id: 26,
+                number: "2.12",
+                responsible: "CTM",
+                action: "Fechar 34W1-1 e 34C3-1",
+                icon: "🔧",
+                duration: 3500,
+                phase: "NORMALIZAÇÃO",
+                multiIndex: [0,1]
+            },
+            {
+                id: 27,
+                number: "2.13",
+                responsible: "CTM",
+                action: "Abrir 34C3-2 e 34W1-2",
+                icon: "🔧",
+                duration: 3500,
+                phase: "NORMALIZAÇÃO",
+                multiIndex: [0,1]
+            },
+            {
+                id: 28,
+                number: "2.14",
+                responsible: "CTM",
+                action: "Desbloquear comando elétrico 34F9-1",
+                icon: "🔓",
+                duration: 3000,
+                phase: "NORMALIZAÇÃO"
+            },
+            {
+                id: 29,
+                number: "2.15",
+                responsible: "CTM",
+                action: "Informar COOS conclusão normalização 04B1",
+                icon: "📢",
+                duration: 2000,
+                phase: "NORMALIZAÇÃO"
+            }
+        ];
+
+        let stepStates = {};
+        let currentStep = 1;
+        let completedSteps = 0;
+        let currentPage = 'liberation'; // 'liberation' or 'normalization'
+        let isPaused = false;
+
+        // Initialize step states
+        steps.forEach(step => {
+            stepStates[step.id] = 'disabled';
+        });
+
+        // Global variable to track if normalization was accessed properly
+        let normalizationAccessAuthorized = false;
+
+        // Helper: execute mapped SSH commands for a step number
+        async function execMappedCommands(stepNumber, multiIndex) {
+            // Optional: get list first for logging
+            try {
+                const res = await fetch(`/api/commands/${encodeURIComponent(stepNumber)}`);
+                const js = await res.json();
+                if (!js.ok) {
+                    return { ok: true, executed: [], note: 'Sem comandos mapeados' };
+                }
+            } catch {}
+            const payload = { step: stepNumber };
+            if (typeof multiIndex === 'number') payload.index = multiIndex;
+            const result = await callExecute(payload.step, payload.index);
+            return result;
+        }
+
+        function switchPage(page) {
+            currentPage = page;
+            
+            // Update tab styles
+            const liberationTab = document.getElementById('liberationTab');
+            const normalizationTab = document.getElementById('normalizationTab');
+            const pageTitle = document.getElementById('pageTitle');
+            const pageDescription = document.getElementById('pageDescription');
+            const progressBar = document.getElementById('progressBar');
+            const pageNumber = document.getElementById('pageNumber');
+            const nextBtn = document.getElementById('nextBtn');
+            
+            if (page === 'liberation') {
+                liberationTab.className = 'flex-1 py-3 px-4 rounded-md font-semibold transition-all duration-200 bg-red-500 text-white';
+                normalizationTab.className = 'flex-1 py-3 px-4 rounded-md font-semibold transition-all duration-200 bg-gray-200 text-gray-600 hover:bg-gray-300';
+                pageTitle.textContent = '⚡ Procedimento de Liberação 04B1';
+                pageDescription.textContent = 'Procedimento de liberação elétrica - Execução sequencial';
+                progressBar.className = 'progress-bar bg-gradient-to-r from-red-500 to-red-600 h-3 rounded-full';
+                pageNumber.textContent = '1/2';
+                
+                // Enable next button for liberation phase
+                if (nextBtn) {
+                    nextBtn.disabled = false;
+                    nextBtn.className = 'px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors';
+                }
+            } else {
+                liberationTab.className = 'flex-1 py-3 px-4 rounded-md font-semibold transition-all duration-200 bg-gray-200 text-gray-600 hover:bg-gray-300';
+                normalizationTab.className = 'flex-1 py-3 px-4 rounded-md font-semibold transition-all duration-200 bg-green-500 text-white';
+                pageTitle.textContent = '⚡ Procedimento de Normalização 04B1';
+                pageDescription.textContent = 'Procedimento de normalização elétrica - Execução sequencial';
+                progressBar.className = 'progress-bar bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full';
+                pageNumber.textContent = '2/2';
+                
+                // Disable next button for normalization phase (no next phase)
+                if (nextBtn) {
+                    nextBtn.disabled = true;
+                    nextBtn.className = 'px-4 py-2 bg-gray-400 text-white rounded-lg font-medium cursor-not-allowed opacity-50';
+                    nextBtn.textContent = '▶️ Próxima Etapa';
+                }
+            }
+            
+            renderSteps();
+        }
+
+        function getResponsibleColor(responsible) {
+            const colors = {
+                'CTM': 'from-blue-500 to-blue-600',
+                'COOS': 'from-green-500 to-green-600',
+                'COSR-NE': 'from-purple-500 to-purple-600',
+                'COOS/CTM': 'from-orange-500 to-orange-600'
+            };
+            return colors[responsible] || 'from-gray-500 to-gray-600';
+        }
+
+        function renderInfoHeader() {
+            const infoHeader = document.getElementById('infoHeader');
+            
+            if (currentPage === 'liberation') {
+                infoHeader.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Left Column -->
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <h3 class="text-sm font-semibold text-gray-600 mb-1">ORIGEM:</h3>
+                                        <p class="text-lg font-bold text-gray-800">CROL</p>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-sm font-semibold text-gray-600 mb-1">EQUIPAMENTO:</h3>
+                                        <p class="text-lg font-bold text-gray-800">04B1-CTM</p>
+                                    </div>
+                                </div>
+                                
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <h3 class="text-sm font-semibold text-gray-600 mb-1">PERÍODO:</h3>
+                                        <p class="text-base text-gray-700">-</p>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-sm font-semibold text-gray-600 mb-1">REFERÊNCIA:</h3>
+                                        <p class="text-base text-gray-700">-</p>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <h3 class="text-sm font-semibold text-gray-600 mb-2">RESPONSÁVEIS:</h3>
+                                    <p class="text-base text-gray-700">-</p>
+                                </div>
+                                
+                                <div>
+                                    <h3 class="text-sm font-semibold text-gray-600 mb-2">MOTIVO DA REVISÃO:</h3>
+                                    <ul class="text-base text-gray-700 space-y-1">
+                                        <li>• Seccionamento da LT 04F8 PFE/CTM em SE LAC.</li>
+                                        <li>• Substituição de CROL para COOS.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <!-- Right Column -->
+                            <div class="space-y-4">
+                                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                    <h3 class="text-sm font-semibold text-yellow-800 mb-2 flex items-center">
+                                        ⚠️ ATENÇÃO
+                                    </h3>
+                                    <p class="text-base text-yellow-700">Procedimento crítico de segurança elétrica</p>
+                                </div>
+                                
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <h3 class="text-sm font-semibold text-blue-800 mb-3 flex items-center">
+                                        ⚙️ CONFIGURAÇÃO
+                                    </h3>
+                                    <ul class="text-sm text-blue-700 space-y-2">
+                                        <li>• <strong>14D1</strong> fechado com chaves associadas fechadas e todas as chaves by-pass 230 kV abertas.</li>
+                                        <li>• <strong>04B1</strong> e <strong>04B2</strong> acoplados através do <strong>14D1</strong>.</li>
+                                        <li>• <strong>14C3</strong> e <strong>14W1</strong> conectados ao <strong>04B1</strong>.</li>
+                                        <li>• <strong>14F9</strong> conectado ao <strong>04B2</strong>.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Start Procedure Button -->
+                        <div class="mt-6 text-center">
+                            <button onclick="startProcedure()" id="startBtn" class="px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold text-lg rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                                🚀 INICIAR MANOBRA
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Check if normalization access is authorized
+                if (!normalizationAccessAuthorized) {
+                    infoHeader.innerHTML = `
+                        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+                            <div class="bg-red-50 border-2 border-red-300 rounded-lg p-6">
+                                <div class="text-center mb-6">
+                                    <div class="text-6xl mb-4">🚫</div>
+                                    <h3 class="text-2xl font-bold text-red-800 mb-4">
+                                        ACESSO RESTRITO À NORMALIZAÇÃO
+                                    </h3>
+                                </div>
+                                
+                                <div class="bg-white border border-red-200 rounded-lg p-4 mb-6">
+                                    <h4 class="text-lg font-bold text-red-700 mb-3 flex items-center">
+                                        ⚠️ Acesso Não Autorizado
+                                    </h4>
+                                    <p class="text-red-700 mb-4">
+                                        A fase de <strong>Normalização</strong> só pode ser acessada através do botão <strong>"Próxima Etapa"</strong> no painel de controle, após a conclusão adequada da fase de Liberação.
+                                    </p>
+                                    <p class="text-red-600 font-semibold">
+                                        🔒 Todos os controles estão bloqueados nesta visualização.
+                                    </p>
+                                </div>
+                                
+                                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                                    <h4 class="text-lg font-bold text-blue-800 mb-3 flex items-center">
+                                        📋 Como Acessar Corretamente:
+                                    </h4>
+                                    <ol class="text-blue-700 space-y-2">
+                                        <li><strong>1.</strong> Retorne à aba <strong>"Liberação"</strong></li>
+                                        <li><strong>2.</strong> Complete ou gerencie as etapas de liberação</li>
+                                        <li><strong>3.</strong> Use o botão <strong>"Próxima Etapa"</strong> no painel de controle</li>
+                                        <li><strong>4.</strong> A normalização será desbloqueada automaticamente</li>
+                                    </ol>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <button onclick="switchPage('liberation')" class="px-8 py-4 bg-red-600 hover:bg-red-700 text-white font-bold text-lg rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105">
+                                        ← VOLTAR PARA LIBERAÇÃO
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    infoHeader.innerHTML = `
+                        <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+                                <h3 class="text-lg font-semibold text-green-800 mb-4 flex items-center">
+                                    🔓 PROCEDIMENTO DE NORMALIZAÇÃO
+                                </h3>
+                                <p class="text-base text-green-700 mb-6">
+                                    Procedimento para retornar o equipamento 04B1 ao estado operacional normal após conclusão dos trabalhos de manutenção.
+                                </p>
+                                
+                                <!-- Start Normalization Button -->
+                                <div class="text-center">
+                                    <button onclick="startNormalization()" id="startNormalizationBtn" class="px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold text-lg rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
+                                        🔓 INICIAR NORMALIZAÇÃO
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Update control panel buttons based on access authorization
+            updateControlPanelButtons();
+        }
+
+        function startProcedure() {
+            // Enable first step
+            stepStates[1] = 'ready';
+            
+            // Disable start button
+            const startBtn = document.getElementById('startBtn');
+            if (startBtn) {
+                startBtn.disabled = true;
+                startBtn.textContent = '✅ MANOBRA INICIADA';
+                startBtn.className = 'px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold text-lg rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed';
+            }
+            
+            // Enable skip and defer buttons when procedure starts
+            const skipBtn = document.getElementById('skipBtn');
+            const deferBtn = document.getElementById('deferBtn');
+            if (skipBtn) skipBtn.disabled = false;
+            if (deferBtn) deferBtn.disabled = false;
+            
+            renderSteps();
+            updateControlButtonsState();
+            addToLog('🚀 Procedimento de liberação iniciado', 'info');
+            addToLog('Primeira etapa habilitada para execução', 'info');
+        }
+
+        function startNormalization() {
+            // Enable first normalization step (step 15)
+            stepStates[15] = 'ready';
+            
+            // Disable start normalization button
+            const startNormalizationBtn = document.getElementById('startNormalizationBtn');
+            if (startNormalizationBtn) {
+                startNormalizationBtn.disabled = true;
+                startNormalizationBtn.textContent = '✅ NORMALIZAÇÃO INICIADA';
+                startNormalizationBtn.className = 'px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold text-lg rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed';
+            }
+            
+            // Enable skip and defer buttons when normalization starts
+            const skipBtn = document.getElementById('skipBtn');
+            const deferBtn = document.getElementById('deferBtn');
+            if (skipBtn) skipBtn.disabled = false;
+            if (deferBtn) deferBtn.disabled = false;
+            
+            renderSteps();
+            updateControlButtonsState();
+            addToLog('🔓 Procedimento de normalização iniciado', 'info');
+            addToLog('Primeira etapa de normalização habilitada para execução', 'info');
+        }
+
+        function renderSteps() {
+            const grid = document.getElementById('stepsGrid');
+            grid.innerHTML = '';
+
+            // Render info header
+            renderInfoHeader();
+
+            // Check if we should block normalization access
+            const shouldBlockNormalization = currentPage === 'normalization' && !normalizationAccessAuthorized;
+
+            // Filter steps based on current page
+            const filteredSteps = steps.filter(step => {
+                if (currentPage === 'liberation') {
+                    return step.phase === 'LIBERAÇÃO';
+                } else {
+                    return step.phase === 'NORMALIZAÇÃO';
+                }
+            });
+
+            filteredSteps.forEach(step => {
+                const state = stepStates[step.id];
+                const isExecuting = state === 'executing';
+                const isCompleted = state === 'completed';
+                const isReady = state === 'ready';
+                const isDisabled = state === 'disabled';
+                const isSkipped = state === 'skipped';
+                const isDeferred = state === 'deferred';
+
+                const card = document.createElement('div');
+                card.className = `step-card bg-white rounded-xl shadow-lg border border-gray-200 p-6 ${isExecuting ? 'executing' : ''} ${isDisabled || isSkipped || shouldBlockNormalization ? 'opacity-60' : ''} ${isDeferred ? 'opacity-80' : ''}`;
+                
+                const executionTime = stepStates[`${step.id}_time`];
+                
+                card.innerHTML = `
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="step-number text-white font-bold text-sm px-3 py-1 rounded-full mr-3">
+                                ${step.number}
+                            </div>
+                            <div class="text-2xl mr-3">${step.icon}</div>
+                            <div>
+                                <span class="inline-block px-3 py-1 rounded-full text-xs font-medium text-white bg-gradient-to-r ${getResponsibleColor(step.responsible)}">
+                                    ${step.responsible}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            ${isCompleted && executionTime ? `<span class="text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded">${executionTime}</span>` : ''}
+                            <div class="status-indicator w-4 h-4 rounded-full ${
+                                isCompleted ? 'completed' : 
+                                isExecuting ? 'executing-status' : 
+                                isSkipped ? 'skipped' :
+                                isDeferred ? 'deferred' :
+                                isReady ? 'pending' : 'disabled'
+                            }"></div>
+                        </div>
+                    </div>
+                    
+                    <p class="text-gray-700 mb-6 text-lg leading-relaxed font-medium">${step.action}</p>
+                    
+                    <button 
+                        onclick="executeStep(${step.id})" 
+                        ${(!isReady && !isDeferred) || isExecuting || isSkipped || shouldBlockNormalization ? 'disabled' : ''} 
+                        class="execute-btn w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-200 ${
+                            shouldBlockNormalization
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : isExecuting 
+                                    ? 'bg-amber-500 cursor-not-allowed' 
+                                    : isCompleted 
+                                        ? 'bg-green-600' 
+                                        : isSkipped
+                                            ? 'bg-yellow-500 cursor-not-allowed'
+                                            : isDeferred
+                                                ? 'bg-purple-600 hover:bg-purple-700'
+                                                : isReady
+                                                    ? currentPage === 'liberation' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
+                                                    : 'bg-gray-400 cursor-not-allowed'
+                        }"
+                    >
+                        ${shouldBlockNormalization ? '🚫 ACESSO RESTRITO' :
+                          isExecuting ? '⏳ EXECUTANDO...' : 
+                          isCompleted ? '✅ CONCLUÍDO' : 
+                          isSkipped ? '⏭️ PULADO' :
+                          isDeferred ? '⏰ EXECUTAR ADIADO' :
+                          isReady ? '🚀 EXECUTAR' : '🔒 BLOQUEADO'}
+                    </button>
+                `;
+                
+                grid.appendChild(card);
+            });
+
+            updateProgress();
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const pauseBtn = document.getElementById('pauseBtn');
+            const pauseOverlay = document.getElementById('pauseOverlay');
+            const stepsGrid = document.getElementById('stepsGrid');
+            const nextBtn = document.getElementById('nextBtn');
+            const skipBtn = document.getElementById('skipBtn');
+            const deferBtn = document.getElementById('deferBtn');
+            
+            if (isPaused) {
+                // Pause the procedure
+                pauseBtn.innerHTML = '▶️ Retomar';
+                pauseBtn.className = 'px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors';
+                pauseOverlay.classList.add('active');
+                stepsGrid.classList.add('paused');
+                
+                // Disable all control buttons during pause
+                nextBtn.disabled = true;
+                nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                skipBtn.disabled = true;
+                skipBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                deferBtn.disabled = true;
+                deferBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                
+                addToLog('⏸️ PROCEDIMENTO PAUSADO pelo operador', 'info');
+                addToLog('⚠️ Todos os controles bloqueados durante a pausa', 'info');
+            } else {
+                // Resume the procedure
+                pauseBtn.innerHTML = '⏸️ Pausar';
+                pauseBtn.className = 'px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors';
+                pauseOverlay.classList.remove('active');
+                stepsGrid.classList.remove('paused');
+                
+                // Re-enable buttons based on current state
+                nextBtn.disabled = false;
+                nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                skipBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                deferBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                
+                updateControlButtonsState();
+                
+                addToLog('▶️ PROCEDIMENTO RETOMADO pelo operador', 'success');
+                addToLog('✅ Controles liberados para operação', 'success');
+            }
+        }
+
+        function executeStep(id) {
+            const step = steps.find(s => s.id === id);
+            if (!step || (stepStates[id] !== 'ready' && stepStates[id] !== 'deferred') || isPaused) return;
+
+            // Multi-action steps handled with popup
+            if (id === 8 || id === 9 || id === 26 || id === 27) {
+                showMultiActionPopup(step);
+                return;
+            }
+
+            if (step.action.includes('Abrir') || step.action.includes('Fechar')) {
+                showCriticalActionConfirmation(step);
+                return;
+            }
+
+            executeStepDirectly(id);
+        }
+
+        function showCriticalActionConfirmation(step) {
+            // Create confirmation overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50';
+            overlay.id = 'confirmationOverlay';
+
+            // Create confirmation popup
+            const popup = document.createElement('div');
+            popup.className = 'bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4 transform transition-all duration-300 scale-95';
+            
+            popup.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-4">⚠️</div>
+                    <h2 class="text-2xl font-bold text-red-600 mb-2">CONFIRMAÇÃO DE MANOBRA CRÍTICA</h2>
+                    <p class="text-lg text-gray-600">Etapa ${step.number} - ${step.responsible}</p>
+                </div>
+
+                <div class="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-6 mb-6">
+                    <h3 class="text-lg font-bold text-yellow-800 mb-3 flex items-center">
+                        🔧 Confirma:
+                    </h3>
+                    <p class="text-xl font-semibold text-yellow-900 leading-relaxed">
+                        ${step.action}
+                    </p>
+                </div>
+
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-red-700 font-medium">
+                        ⚠️ Esta é uma manobra crítica que requer confirmação do operador antes da execução.
+                    </p>
+                </div>
+
+                <div class="flex space-x-4">
+                    <button 
+                        onclick="cancelCriticalAction()"
+                        class="flex-1 py-4 px-6 bg-gray-500 hover:bg-gray-600 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ❌ CANCELAR
+                    </button>
+                    <button 
+                        onclick="confirmCriticalAction(${step.id})"
+                        class="flex-1 py-4 px-6 bg-red-600 hover:bg-red-700 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ✅ CONFIRMAR
+                    </button>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <p class="text-xs text-gray-500">
+                        Certifique-se de que todas as condições de segurança foram verificadas
+                    </p>
+                </div>
+            `;
+
+            overlay.appendChild(popup);
+            document.body.appendChild(overlay);
+
+            // Add animation
+            setTimeout(() => {
+                popup.style.transform = 'scale(1)';
+            }, 10);
+
+            // Store step for confirmation
+            window.pendingCriticalStep = step;
+        }
+
+        async function confirmCriticalAction(stepId) {
+            addToLog(`✅ Manobra crítica confirmada pelo operador - Etapa ${window.pendingCriticalStep.number}`, 'success');
+            closeCriticalActionPopup();
+            await executeStepDirectly(stepId);
+        }
+
+        function cancelCriticalAction() {
+            addToLog(`❌ Manobra crítica cancelada pelo operador - Etapa ${window.pendingCriticalStep.number}`, 'info');
+            closeCriticalActionPopup();
+        }
+
+        function closeCriticalActionPopup() {
+            const overlay = document.getElementById('confirmationOverlay');
+            if (overlay) {
+                const popup = overlay.querySelector('div');
+                popup.style.transform = 'scale(0.8)';
+                popup.style.opacity = '0';
+                
+                setTimeout(() => {
+                    overlay.remove();
+                }, 200);
+            }
+            
+            // Clean up
+            delete window.pendingCriticalStep;
+        }
+
+        async function executeStepDirectly(id) {
+            const step = steps.find(s => s.id === id);
+            const wasDeferred = stepStates[id] === 'deferred';
+
+            // Execute SSH commands mapped by Comandos.txt, if any
+            addToLog(`🔗 Verificando comandos SSH para o item ${step.number}...`, 'info');
+            const execResult = await execMappedCommands(step.number);
+            if (execResult && execResult.executed && execResult.executed.length) {
+                execResult.executed.forEach(r => {
+                    const ok = r.exit_status === 0;
+                    addToLog(`${ok ? '✅' : '❌'} SSH ${ok ? 'OK' : 'FALHA'}: ${r.command} ${r.stdout ? ' — ' + r.stdout : ''} ${r.stderr ? ' — ' + r.stderr : ''}`, ok ? 'success' : 'info');
+                });
+                if (!execResult.ok) {
+                    addToLog(`⚠️ Alguns comandos SSH falharam para ${step.number}. Verifique o equipamento.`, 'info');
+                }
+            } else {
+                addToLog(`ℹ️ Sem comandos mapeados para ${step.number}.`, 'info');
+            }
+            
+            // Set executing state in UI
+            stepStates[id] = 'executing';
+            renderSteps();
+
+            // Simulate execution time
+            setTimeout(() => {
+                stepStates[id] = 'completed';
+                completedSteps++;
+                const executionTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                stepStates[`${id}_time`] = executionTime;
+                if (!wasDeferred && id < steps.length) {
+                    stepStates[id + 1] = 'ready';
+                    currentStep = id + 1;
+                }
+                renderSteps();
+                updateControlButtonsState();
+                addToLog(`✅ Concluído ${step.number}: ${step.action}`, 'success');
+                if (completedSteps === 14) {
+                    addToLog('✅ FASE DE LIBERAÇÃO CONCLUÍDA! Acesse a aba de Normalização para continuar.', 'success');
+                    document.getElementById('normalizationTab').disabled = false;
+                }
+                if (completedSteps === steps.length) {
+                    addToLog('🎉 PROCEDIMENTO COMPLETO DE LIBERAÇÃO E NORMALIZAÇÃO 04B1 CONCLUÍDO COM SUCESSO!', 'success');
+                    document.getElementById('nextBtn').textContent = '🎉 Concluído';
+                    document.getElementById('nextBtn').disabled = true;
+                    document.getElementById('skipBtn').disabled = true;
+                    document.getElementById('deferBtn').disabled = true;
+                }
+                showSuccessAnimation(id);
+            }, step.duration);
+        }
+
+        function showMultiActionPopup(step) {
+            // Define actions for each step
+            let actions = [];
+            if (step.id === 8) { // Step 1.8
+                actions = [
+                    { name: 'Fechar 34C3-2', icon: '🔧', duration: 2000 },
+                    { name: 'Fechar 34W1-2', icon: '🔧', duration: 2000 }
+                ];
+            } else if (step.id === 9) { // Step 1.9
+                actions = [
+                    { name: 'Abrir 34W1-1', icon: '🔧', duration: 2000 },
+                    { name: 'Abrir 34C3-1', icon: '🔧', duration: 2000 }
+                ];
+            } else if (step.id === 26) { // Step 2.12
+                actions = [
+                    { name: 'Fechar 34W1-1', icon: '🔧', duration: 2000 },
+                    { name: 'Fechar 34C3-1', icon: '🔧', duration: 2000 }
+                ];
+            } else if (step.id === 27) { // Step 2.13
+                actions = [
+                    { name: 'Abrir 34C3-2', icon: '🔧', duration: 2000 },
+                    { name: 'Abrir 34W1-2', icon: '🔧', duration: 2000 }
+                ];
+            }
+
+            // Create popup overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            overlay.id = 'multiActionOverlay';
+
+            // Create popup content
+            const popup = document.createElement('div');
+            popup.className = 'bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full mx-4 transform transition-all duration-300';
+            
+            popup.innerHTML = `
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">⚡ Execução de Manobras</h2>
+                    <p class="text-lg text-gray-600">Etapa ${step.number}: ${step.responsible}</p>
+                    <p class="text-sm text-gray-500 mt-2">Execute cada ação separadamente e confirme individualmente</p>
+                </div>
+
+                <div class="space-y-4 mb-8" id="actionsList">
+                    ${actions.map((action, index) => `
+                        <div class="bg-gray-50 rounded-xl p-6 border border-gray-200" id="action-${index}">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center">
+                                    <span class="text-2xl mr-3">${action.icon}</span>
+                                    <span class="text-lg font-semibold text-gray-800">${action.name}</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-3 h-3 bg-gray-400 rounded-full" id="status-${index}"></div>
+                                    <span class="text-xs text-gray-500" id="time-${index}"></span>
+                                </div>
+                            </div>
+                            <button 
+                                onclick="executeIndividualAction(${index}, '${action.name}', ${action.duration})"
+                                id="btn-${index}"
+                                class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105"
+                            >
+                                🚀 Executar ${action.name}
+                            </button>
+                        </div>
+                    `).join('')}
+
+                    <div class="text-center">
+                        <button 
+                            onclick="closeMultiActionPopup()"
+                            class="mt-4 px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition-colors"
+                        >
+                            ❌ Cancelar
+                        </button>
+                        <button 
+                            onclick="completeMultiActionStep(${step.id})"
+                            id="completeBtn"
+                            disabled
+                            class="mt-4 px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            ✅ Concluir Etapa
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            overlay.appendChild(popup);
+            document.body.appendChild(overlay);
+
+            // Initialize action states
+            window.multiActionStates = actions.map(() => 'pending');
+            window.currentMultiActionStep = step;
+
+            // Add animation
+            setTimeout(() => {
+                popup.style.transform = 'scale(1)';
+            }, 10);
+        }
+
+        async function executeIndividualAction(index, actionName, duration) {
+            if (actionName.includes('Abrir') || actionName.includes('Fechar')) {
+                showIndividualActionConfirmation(index, actionName, duration);
+                return;
+            }
+            await executeIndividualActionDirectly(index, actionName, duration);
+        }
+
+        function showIndividualActionConfirmation(index, actionName, duration) {
+            // Create confirmation overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50';
+            overlay.id = 'individualConfirmationOverlay';
+
+            // Create confirmation popup
+            const popup = document.createElement('div');
+            popup.className = 'bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4 transform transition-all duration-300 scale-95';
+            
+            popup.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-4">⚠️</div>
+                    <h2 class="text-2xl font-bold text-red-600 mb-2">CONFIRMAÇÃO DE MANOBRA CRÍTICA</h2>
+                    <p class="text-lg text-gray-600">Etapa ${window.currentMultiActionStep.number} - ${window.currentMultiActionStep.responsible}</p>
+                </div>
+
+                <div class="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-6 mb-6">
+                    <h3 class="text-lg font-bold text-yellow-800 mb-3 flex items-center">
+                        🔧 Confirma:
+                    </h3>
+                    <p class="text-xl font-semibold text-yellow-900 leading-relaxed">
+                        ${actionName}
+                    </p>
+                </div>
+
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-red-700 font-medium">
+                        ⚠️ Esta é uma manobra crítica que requer confirmação do operador antes da execução.
+                    </p>
+                </div>
+
+                <div class="flex space-x-4">
+                    <button 
+                        onclick="cancelIndividualAction()"
+                        class="flex-1 py-4 px-6 bg-gray-500 hover:bg-gray-600 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ❌ CANCELAR
+                    </button>
+                    <button 
+                        onclick="confirmIndividualAction(${index}, '${actionName}', ${duration})"
+                        class="flex-1 py-4 px-6 bg-red-600 hover:bg-red-700 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ✅ CONFIRMAR
+                    </button>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <p class="text-xs text-gray-500">
+                        Certifique-se de que todas as condições de segurança foram verificadas
+                    </p>
+                </div>
+            `;
+
+            overlay.appendChild(popup);
+            document.body.appendChild(overlay);
+
+            // Add animation
+            setTimeout(() => {
+                popup.style.transform = 'scale(1)';
+            }, 10);
+        }
+
+        async function confirmIndividualAction(index, actionName, duration) {
+            addToLog(`✅ Manobra crítica confirmada pelo operador: ${actionName}`, 'success');
+            closeIndividualActionPopup();
+            await executeIndividualActionDirectly(index, actionName, duration);
+        }
+
+        function cancelIndividualAction() {
+            addToLog(`❌ Manobra crítica cancelada pelo operador`, 'info');
+            closeIndividualActionPopup();
+        }
+
+        function closeIndividualActionPopup() {
+            const overlay = document.getElementById('individualConfirmationOverlay');
+            if (overlay) {
+                const popup = overlay.querySelector('div');
+                popup.style.transform = 'scale(0.8)';
+                popup.style.opacity = '0';
+                
+                setTimeout(() => {
+                    overlay.remove();
+                }, 200);
+            }
+        }
+
+        async function executeIndividualActionDirectly(index, actionName, duration) {
+            const button = document.getElementById(`btn-${index}`);
+            const status = document.getElementById(`status-${index}`);
+            const timeSpan = document.getElementById(`time-${index}`);
+
+            // Execute corresponding SSH command for this sub-action index
+            const step = window.currentMultiActionStep;
+            addToLog(`🔗 Executando comando SSH do item ${step.number} (ação ${index+1})...`, 'info');
+            const execResult = await execMappedCommands(step.number, index);
+            if (execResult && execResult.executed && execResult.executed.length) {
+                execResult.executed.forEach(r => {
+                    const ok = r.exit_status === 0;
+                    addToLog(`${ok ? '✅' : '❌'} SSH ${ok ? 'OK' : 'FALHA'}: ${r.command} ${r.stdout ? ' — ' + r.stdout : ''} ${r.stderr ? ' — ' + r.stderr : ''}`, ok ? 'success' : 'info');
+                });
+                if (!execResult.ok) {
+                    addToLog(`⚠️ Comando SSH falhou para ${step.number} (ação ${index+1}).`, 'info');
+                }
+            } else {
+                addToLog(`ℹ️ Sem comando mapeado para a ação ${index+1} do item ${step.number}.`, 'info');
+            }
+            
+            // UI state transitions
+            window.multiActionStates[index] = 'executing';
+            button.textContent = '⏳ Executando...';
+            button.disabled = true;
+            button.className = 'w-full py-3 px-4 bg-amber-500 text-white font-semibold rounded-lg cursor-not-allowed';
+            status.className = 'w-3 h-3 bg-amber-500 rounded-full';
+
+            setTimeout(() => {
+                window.multiActionStates[index] = 'completed';
+                button.textContent = '✅ Concluído';
+                button.className = 'w-full py-3 px-4 bg-green-600 text-white font-semibold rounded-lg cursor-not-allowed';
+                status.className = 'w-3 h-3 bg-green-500 rounded-full';
+                const executionTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                timeSpan.textContent = executionTime;
+                timeSpan.className = 'text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded';
+
+                addToLog(`✅ Concluído: ${actionName}`, 'success');
+
+                const allCompleted = window.multiActionStates.every(state => state === 'completed');
+                if (allCompleted) {
+                    const completeBtn = document.getElementById('completeBtn');
+                    completeBtn.disabled = false;
+                    completeBtn.className = 'px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors transform hover:scale-105';
+                    completeBtn.style.animation = 'pulse 1.5s infinite';
+                }
+            }, duration);
+        }
+
+        function completeMultiActionStep(stepId) {
+            const step = window.currentMultiActionStep;
+            
+            // Mark step as completed
+            stepStates[stepId] = 'completed';
+            completedSteps++;
+            
+            // Store execution time
+            const executionTime = new Date().toLocaleTimeString('pt-BR', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            stepStates[`${stepId}_time`] = executionTime;
+            
+            // Enable next step
+            if (stepId < steps.length) {
+                stepStates[stepId + 1] = 'ready';
+                currentStep = stepId + 1;
+            }
+            
+            addToLog(`✅ Etapa ${step.number} concluída com todas as manobras executadas`, 'success');
+            
+            // Check completion milestones
+            if (completedSteps === 14) {
+                addToLog('✅ FASE DE LIBERAÇÃO CONCLUÍDA! Acesse a aba de Normalização para continuar.', 'success');
+                document.getElementById('normalizationTab').disabled = false;
+            }
+            
+            if (completedSteps === steps.length) {
+                addToLog('🎉 PROCEDIMENTO COMPLETO DE LIBERAÇÃO E NORMALIZAÇÃO 04B1 CONCLUÍDO COM SUCESSO!', 'success');
+                document.getElementById('nextBtn').textContent = '🎉 Concluído';
+                document.getElementById('nextBtn').disabled = true;
+            }
+            
+            // Close popup and refresh
+            closeMultiActionPopup();
+            renderSteps();
+            showSuccessAnimation(stepId);
+        }
+
+        function closeMultiActionPopup() {
+            const overlay = document.getElementById('multiActionOverlay');
+            if (overlay) {
+                const popup = overlay.querySelector('div');
+                popup.style.transform = 'scale(0.8)';
+                popup.style.opacity = '0';
+                
+                setTimeout(() => {
+                    overlay.remove();
+                }, 200);
+            }
+            
+            // Clean up global variables
+            delete window.multiActionStates;
+            delete window.currentMultiActionStep;
+        }
+
+        function skipCurrentStep() {
+            // Skip button is disabled when paused
+            if (isPaused) return;
+            
+            // Find next ready step in current page
+            const currentPageSteps = steps.filter(step => {
+                if (currentPage === 'liberation') {
+                    return step.phase === 'LIBERAÇÃO';
+                } else {
+                    return step.phase === 'NORMALIZAÇÃO';
+                }
+            });
+            
+            const nextStep = currentPageSteps.find(step => stepStates[step.id] === 'ready');
+            
+            if (nextStep) {
+                // Show confirmation popup
+                showSkipConfirmation(nextStep);
+            }
+        }
+
+        function deferCurrentStep() {
+            if (isPaused) return;
+            
+            // Find next ready step in current page
+            const currentPageSteps = steps.filter(step => {
+                if (currentPage === 'liberation') {
+                    return step.phase === 'LIBERAÇÃO';
+                } else {
+                    return step.phase === 'NORMALIZAÇÃO';
+                }
+            });
+            
+            const nextStep = currentPageSteps.find(step => stepStates[step.id] === 'ready');
+            
+            if (nextStep) {
+                // Show defer confirmation popup
+                showDeferConfirmation(nextStep);
+            }
+        }
+
+        function showSkipConfirmation(step) {
+            // Create confirmation overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50';
+            overlay.id = 'skipConfirmationOverlay';
+
+            // Create confirmation popup
+            const popup = document.createElement('div');
+            popup.className = 'bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4 transform transition-all duration-300 scale-95';
+            
+            popup.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-4">⚠️</div>
+                    <h2 class="text-2xl font-bold text-yellow-600 mb-2">CONFIRMAÇÃO DE PULO</h2>
+                    <p class="text-lg text-gray-600">Etapa ${step.number} - ${step.responsible}</p>
+                </div>
+
+                <div class="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-6 mb-6">
+                    <h3 class="text-lg font-bold text-yellow-800 mb-3 flex items-center">
+                        ⏭️ Pular Etapa:
+                    </h3>
+                    <p class="text-xl font-semibold text-yellow-900 leading-relaxed">
+                        ${step.action}
+                    </p>
+                </div>
+
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-red-700 font-medium">
+                        ⚠️ ATENÇÃO: Esta etapa será marcada como PULADA e não poderá ser executada posteriormente. Esta ação é irreversível.
+                    </p>
+                </div>
+
+                <div class="flex space-x-4">
+                    <button 
+                        onclick="cancelSkip()"
+                        class="flex-1 py-4 px-6 bg-gray-500 hover:bg-gray-600 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ❌ CANCELAR
+                    </button>
+                    <button 
+                        onclick="confirmSkip(${step.id})"
+                        class="flex-1 py-4 px-6 bg-yellow-600 hover:bg-yellow-700 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ⏭️ CONFIRMAR PULO
+                    </button>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <p class="text-xs text-gray-500">
+                        Certifique-se de que é seguro pular esta etapa do procedimento
+                    </p>
+                </div>
+            `;
+
+            overlay.appendChild(popup);
+            document.body.appendChild(overlay);
+
+            // Add animation
+            setTimeout(() => {
+                popup.style.transform = 'scale(1)';
+            }, 10);
+
+            // Store step for confirmation
+            window.pendingSkipStep = step;
+        }
+
+        function showDeferConfirmation(step) {
+            // Create confirmation overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50';
+            overlay.id = 'deferConfirmationOverlay';
+
+            // Create confirmation popup
+            const popup = document.createElement('div');
+            popup.className = 'bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4 transform transition-all duration-300 scale-95';
+            
+            popup.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-4">⏰</div>
+                    <h2 class="text-2xl font-bold text-purple-600 mb-2">CONFIRMAÇÃO DE ADIAMENTO</h2>
+                    <p class="text-lg text-gray-600">Etapa ${step.number} - ${step.responsible}</p>
+                </div>
+
+                <div class="bg-purple-50 border-2 border-purple-300 rounded-xl p-6 mb-6">
+                    <h3 class="text-lg font-bold text-purple-800 mb-3 flex items-center">
+                        ⏰ Adiar Etapa:
+                    </h3>
+                    <p class="text-xl font-semibold text-purple-900 leading-relaxed">
+                        ${step.action}
+                    </p>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-blue-700 font-medium">
+                        ℹ️ Esta etapa será marcada como ADIADA e poderá ser executada posteriormente a qualquer momento. O procedimento continuará com a próxima etapa.
+                    </p>
+                </div>
+
+                <div class="flex space-x-4">
+                    <button 
+                        onclick="cancelDefer()"
+                        class="flex-1 py-4 px-6 bg-gray-500 hover:bg-gray-600 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ❌ CANCELAR
+                    </button>
+                    <button 
+                        onclick="confirmDefer(${step.id})"
+                        class="flex-1 py-4 px-6 bg-purple-600 hover:bg-purple-700 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ⏰ CONFIRMAR ADIAMENTO
+                    </button>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <p class="text-xs text-gray-500">
+                        A etapa adiada ficará disponível para execução posterior
+                    </p>
+                </div>
+            `;
+
+            overlay.appendChild(popup);
+            document.body.appendChild(overlay);
+
+            // Add animation
+            setTimeout(() => {
+                popup.style.transform = 'scale(1)';
+            }, 10);
+
+            // Store step for confirmation
+            window.pendingDeferStep = step;
+        }
+
+        function confirmSkip(stepId) {
+            const step = window.pendingSkipStep;
+            
+            // Mark step as skipped
+            stepStates[stepId] = 'skipped';
+            
+            // Store skip time
+            const skipTime = new Date().toLocaleTimeString('pt-BR', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            stepStates[`${stepId}_time`] = skipTime;
+            
+            // Enable next step
+            if (stepId < steps.length) {
+                stepStates[stepId + 1] = 'ready';
+                currentStep = stepId + 1;
+            }
+            
+            addToLog(`⏭️ Etapa ${step.number} PULADA pelo operador: ${step.action}`, 'info');
+            addToLog(`⚠️ ATENÇÃO: Etapa pulada não pode ser executada posteriormente`, 'info');
+            
+            // Check if we need to enable next phase
+            const currentPageSteps = steps.filter(s => s.phase === step.phase);
+            const completedOrSkippedSteps = currentPageSteps.filter(s => 
+                stepStates[s.id] === 'completed' || stepStates[s.id] === 'skipped'
+            ).length;
+            
+            if (step.phase === 'LIBERAÇÃO' && completedOrSkippedSteps === 14) {
+                addToLog('✅ FASE DE LIBERAÇÃO FINALIZADA! Acesse a aba de Normalização para continuar.', 'success');
+                document.getElementById('normalizationTab').disabled = false;
+            }
+            
+            if (completedOrSkippedSteps === steps.length) {
+                addToLog('🎉 PROCEDIMENTO FINALIZADO!', 'success');
+                document.getElementById('nextBtn').textContent = '🎉 Finalizado';
+                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('skipBtn').disabled = true;
+            }
+            
+            closeSkipPopup();
+            renderSteps();
+            updateSkipButtonState();
+        }
+
+        function cancelSkip() {
+            addToLog(`❌ Pulo cancelado pelo operador`, 'info');
+            closeSkipPopup();
+        }
+
+        function closeSkipPopup() {
+            const overlay = document.getElementById('skipConfirmationOverlay');
+            if (overlay) {
+                const popup = overlay.querySelector('div');
+                popup.style.transform = 'scale(0.8)';
+                popup.style.opacity = '0';
+                
+                setTimeout(() => {
+                    overlay.remove();
+                }, 200);
+            }
+            
+            // Clean up
+            delete window.pendingSkipStep;
+        }
+
+        function confirmDefer(stepId) {
+            const step = window.pendingDeferStep;
+            
+            // Mark step as deferred
+            stepStates[stepId] = 'deferred';
+            
+            // Store defer time
+            const deferTime = new Date().toLocaleTimeString('pt-BR', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            stepStates[`${stepId}_defer_time`] = deferTime;
+            
+            // Enable next step
+            if (stepId < steps.length) {
+                stepStates[stepId + 1] = 'ready';
+                currentStep = stepId + 1;
+            }
+            
+            addToLog(`⏰ Etapa ${step.number} ADIADA pelo operador: ${step.action}`, 'info');
+            addToLog(`ℹ️ Etapa adiada pode ser executada posteriormente a qualquer momento`, 'info');
+            
+            closeDeferPopup();
+            renderSteps();
+            updateControlButtonsState();
+        }
+
+        function cancelDefer() {
+            addToLog(`❌ Adiamento cancelado pelo operador`, 'info');
+            closeDeferPopup();
+        }
+
+        function closeDeferPopup() {
+            const overlay = document.getElementById('deferConfirmationOverlay');
+            if (overlay) {
+                const popup = overlay.querySelector('div');
+                popup.style.transform = 'scale(0.8)';
+                popup.style.opacity = '0';
+                
+                setTimeout(() => {
+                    overlay.remove();
+                }, 200);
+            }
+            
+            // Clean up
+            delete window.pendingDeferStep;
+        }
+
+        function updateSkipButtonState() {
+            const skipBtn = document.getElementById('skipBtn');
+            if (!skipBtn) return;
+            
+            // Find next ready step in current page
+            const currentPageSteps = steps.filter(step => {
+                if (currentPage === 'liberation') {
+                    return step.phase === 'LIBERAÇÃO';
+                } else {
+                    return step.phase === 'NORMALIZAÇÃO';
+                }
+            });
+            
+            const hasReadyStep = currentPageSteps.some(step => stepStates[step.id] === 'ready');
+            
+            if (hasReadyStep && !isPaused) {
+                skipBtn.disabled = false;
+            } else {
+                skipBtn.disabled = true;
+            }
+        }
+
+        function updateControlPanelButtons() {
+            const resetBtn = document.querySelector('button[onclick="resetProcedure()"]');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const skipBtn = document.getElementById('skipBtn');
+            const deferBtn = document.getElementById('deferBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            
+            // Check if normalization access is blocked
+            const shouldBlockNormalization = currentPage === 'normalization' && !normalizationAccessAuthorized;
+            
+            if (shouldBlockNormalization) {
+                // Disable all control buttons when normalization access is blocked
+                if (resetBtn) {
+                    resetBtn.disabled = true;
+                    resetBtn.className = 'px-4 py-2 bg-gray-400 text-white rounded-lg font-medium cursor-not-allowed opacity-50';
+                }
+                if (pauseBtn) {
+                    pauseBtn.disabled = true;
+                    pauseBtn.className = 'px-4 py-2 bg-gray-400 text-white rounded-lg font-medium cursor-not-allowed opacity-50';
+                }
+                if (skipBtn) {
+                    skipBtn.disabled = true;
+                    skipBtn.className = 'px-4 py-2 bg-gray-400 text-white rounded-lg font-medium cursor-not-allowed opacity-50';
+                }
+                if (deferBtn) {
+                    deferBtn.disabled = true;
+                    deferBtn.className = 'px-4 py-2 bg-gray-400 text-white rounded-lg font-medium cursor-not-allowed opacity-50';
+                }
+                if (nextBtn) {
+                    nextBtn.disabled = true;
+                    nextBtn.className = 'px-4 py-2 bg-gray-400 text-white rounded-lg font-medium cursor-not-allowed opacity-50';
+                }
+            } else {
+                // Re-enable buttons with proper styling when access is authorized
+                if (resetBtn) {
+                    resetBtn.disabled = false;
+                    resetBtn.className = 'px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors';
+                }
+                if (pauseBtn) {
+                    pauseBtn.disabled = false;
+                    if (isPaused) {
+                        pauseBtn.className = 'px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors';
+                    } else {
+                        pauseBtn.className = 'px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors';
+                    }
+                }
+                
+                // Update other buttons based on normal state logic
+                updateControlButtonsState();
+            }
+        }
+
+        function updateControlButtonsState() {
+            const skipBtn = document.getElementById('skipBtn');
+            const deferBtn = document.getElementById('deferBtn');
+            
+            if (!skipBtn || !deferBtn) return;
+            
+            // Don't update if normalization access is blocked
+            const shouldBlockNormalization = currentPage === 'normalization' && !normalizationAccessAuthorized;
+            if (shouldBlockNormalization) return;
+            
+            // Check if any procedure has started
+            const procedureStarted = Object.values(stepStates).some(state => 
+                state === 'ready' || state === 'executing' || state === 'completed' || state === 'skipped' || state === 'deferred'
+            );
+            
+            // Check if procedure is complete
+            const allStepsFinished = steps.every(step => 
+                stepStates[step.id] === 'completed' || stepStates[step.id] === 'skipped'
+            );
+            
+            // Skip button: Always enabled during procedure (even when paused), disabled only when not started or finished
+            if (procedureStarted && !allStepsFinished) {
+                skipBtn.disabled = false;
+                skipBtn.className = 'px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium transition-colors';
+            } else {
+                skipBtn.disabled = true;
+                skipBtn.className = 'px-4 py-2 bg-gray-400 text-white rounded-lg font-medium cursor-not-allowed opacity-50';
+            }
+            
+            // Defer button: Enable if procedure started and not paused and not finished
+            if (procedureStarted && !isPaused && !allStepsFinished) {
+                deferBtn.disabled = false;
+                deferBtn.className = 'px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors';
+            } else {
+                deferBtn.disabled = true;
+                deferBtn.className = 'px-4 py-2 bg-gray-400 text-white rounded-lg font-medium cursor-not-allowed opacity-50';
+            }
+        }
+
+        function executeNext() {
+            if (isPaused) return;
+            
+            // If we're in liberation phase, always try to go to normalization
+            if (currentPage === 'liberation') {
+                // Check for incomplete steps and show confirmation when trying to proceed to normalization
+                const liberationSteps = steps.filter(s => s.phase === 'LIBERAÇÃO');
+                const incompleteSteps = liberationSteps.filter(s => 
+                    stepStates[s.id] !== 'completed' && stepStates[s.id] !== 'skipped'
+                );
+                
+                if (incompleteSteps.length > 0) {
+                    // Show confirmation to proceed to normalization with incomplete liberation
+                    showPhaseTransitionConfirmation(incompleteSteps);
+                } else {
+                    // All steps completed, proceed directly to normalization
+                    // Authorize normalization access
+                    normalizationAccessAuthorized = true;
+                    addToLog('🔓 Acesso à normalização autorizado - Liberação concluída', 'success');
+                    
+                    switchPage('normalization');
+                    addToLog('🔄 Mudando para a página de Normalização...', 'info');
+                }
+                return;
+            }
+            
+            // If we're in normalization phase, the button should be disabled
+            // This function should not be called in normalization phase
+            return;
+        }
+
+        function showNextStepConfirmation(executingStep, nextStep) {
+            // Create confirmation overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50';
+            overlay.id = 'nextStepConfirmationOverlay';
+
+            // Create confirmation popup
+            const popup = document.createElement('div');
+            popup.className = 'bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4 transform transition-all duration-300 scale-95';
+            
+            popup.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-4">⚠️</div>
+                    <h2 class="text-2xl font-bold text-orange-600 mb-2">MANOBRA EM EXECUÇÃO</h2>
+                    <p class="text-lg text-gray-600">Etapa ${executingStep.number} ainda está sendo executada</p>
+                </div>
+
+                <div class="bg-orange-50 border-2 border-orange-300 rounded-xl p-6 mb-6">
+                    <h3 class="text-lg font-bold text-orange-800 mb-4 flex items-center">
+                        ⏳ Etapa Atual em Execução:
+                    </h3>
+                    <p class="text-base font-semibold text-orange-900 mb-4">
+                        ${executingStep.number} - ${executingStep.action}
+                    </p>
+                    
+                    <h3 class="text-lg font-bold text-blue-800 mb-3 flex items-center">
+                        ▶️ Próxima Etapa:
+                    </h3>
+                    <p class="text-base font-semibold text-blue-900">
+                        ${nextStep.number} - ${nextStep.action}
+                    </p>
+                </div>
+
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-red-700 font-medium">
+                        ⚠️ ATENÇÃO: A etapa atual ainda não foi concluída. Deseja realmente avançar para a próxima etapa? A etapa atual continuará sendo executada em paralelo.
+                    </p>
+                </div>
+
+                <div class="flex space-x-4">
+                    <button 
+                        onclick="cancelNextStep()"
+                        class="flex-1 py-4 px-6 bg-gray-500 hover:bg-gray-600 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ❌ AGUARDAR
+                    </button>
+                    <button 
+                        onclick="confirmNextStep(${nextStep.id})"
+                        class="flex-1 py-4 px-6 bg-orange-600 hover:bg-orange-700 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ▶️ AVANÇAR MESMO ASSIM
+                    </button>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <p class="text-xs text-gray-500">
+                        Recomenda-se aguardar a conclusão da etapa atual antes de avançar
+                    </p>
+                </div>
+            `;
+
+            overlay.appendChild(popup);
+            document.body.appendChild(overlay);
+
+            // Add animation
+            setTimeout(() => {
+                popup.style.transform = 'scale(1)';
+            }, 10);
+
+            // Store next step for confirmation
+            window.pendingNextStep = nextStep;
+        }
+
+        function confirmNextStep(nextStepId) {
+            addToLog(`⚠️ Operador avançou para próxima etapa sem aguardar conclusão da etapa atual`, 'info');
+            closeNextStepPopup();
+            executeStep(nextStepId);
+        }
+
+        function cancelNextStep() {
+            addToLog(`✅ Operador optou por aguardar conclusão da etapa atual`, 'info');
+            closeNextStepPopup();
+        }
+
+        function closeNextStepPopup() {
+            const overlay = document.getElementById('nextStepConfirmationOverlay');
+            if (overlay) {
+                const popup = overlay.querySelector('div');
+                popup.style.transform = 'scale(0.8)';
+                popup.style.opacity = '0';
+                
+                setTimeout(() => {
+                    overlay.remove();
+                }, 200);
+            }
+            
+            // Clean up
+            delete window.pendingNextStep;
+        }
+
+        function showPhaseTransitionConfirmation(incompleteSteps) {
+            // Create confirmation overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50';
+            overlay.id = 'phaseTransitionOverlay';
+
+            // Create confirmation popup
+            const popup = document.createElement('div');
+            popup.className = 'bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full mx-4 transform transition-all duration-300 scale-95';
+            
+            // Count different types of incomplete steps
+            const executingSteps = incompleteSteps.filter(s => stepStates[s.id] === 'executing');
+            const readySteps = incompleteSteps.filter(s => stepStates[s.id] === 'ready');
+            const deferredSteps = incompleteSteps.filter(s => stepStates[s.id] === 'deferred');
+            const disabledSteps = incompleteSteps.filter(s => stepStates[s.id] === 'disabled');
+            
+            popup.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-4">⚠️</div>
+                    <h2 class="text-2xl font-bold text-orange-600 mb-2">MANOBRAS DE LIBERAÇÃO INCOMPLETAS</h2>
+                    <p class="text-lg text-gray-600">Deseja prosseguir para a Normalização?</p>
+                </div>
+
+                <div class="bg-red-50 border-2 border-red-300 rounded-xl p-6 mb-6">
+                    <h3 class="text-lg font-bold text-red-800 mb-4 flex items-center">
+                        🚨 SITUAÇÃO ATUAL DA LIBERAÇÃO:
+                    </h3>
+                    
+                    <div class="space-y-3">
+                        ${executingSteps.length > 0 ? `
+                        <div class="flex items-center justify-between bg-amber-100 p-3 rounded-lg">
+                            <span class="font-semibold text-amber-800">⏳ Etapas em Execução:</span>
+                            <span class="font-bold text-amber-900">${executingSteps.length}</span>
+                        </div>
+                        ` : ''}
+                        
+                        ${readySteps.length > 0 ? `
+                        <div class="flex items-center justify-between bg-blue-100 p-3 rounded-lg">
+                            <span class="font-semibold text-blue-800">🚀 Etapas Prontas para Execução:</span>
+                            <span class="font-bold text-blue-900">${readySteps.length}</span>
+                        </div>
+                        ` : ''}
+                        
+                        ${deferredSteps.length > 0 ? `
+                        <div class="flex items-center justify-between bg-purple-100 p-3 rounded-lg">
+                            <span class="font-semibold text-purple-800">⏰ Etapas Adiadas:</span>
+                            <span class="font-bold text-purple-900">${deferredSteps.length}</span>
+                        </div>
+                        ` : ''}
+                        
+                        ${disabledSteps.length > 0 ? `
+                        <div class="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
+                            <span class="font-semibold text-gray-800">🔒 Etapas Bloqueadas:</span>
+                            <span class="font-bold text-gray-900">${disabledSteps.length}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-yellow-800 font-medium">
+                        ⚠️ <strong>ATENÇÃO:</strong> Prosseguir para a Normalização sem concluir todas as etapas de Liberação pode comprometer a segurança do procedimento. 
+                        ${executingSteps.length > 0 ? 'Há etapas ainda sendo executadas que continuarão em paralelo.' : ''}
+                    </p>
+                </div>
+
+                <div class="flex space-x-4">
+                    <button 
+                        onclick="cancelPhaseTransition()"
+                        class="flex-1 py-4 px-6 bg-gray-500 hover:bg-gray-600 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ❌ PERMANECER NA LIBERAÇÃO
+                    </button>
+                    <button 
+                        onclick="confirmPhaseTransition()"
+                        class="flex-1 py-4 px-6 bg-orange-600 hover:bg-orange-700 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ⚠️ PROSSEGUIR PARA NORMALIZAÇÃO
+                    </button>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <p class="text-xs text-gray-500">
+                        Recomenda-se concluir todas as etapas de liberação antes de prosseguir
+                    </p>
+                </div>
+            `;
+
+            overlay.appendChild(popup);
+            document.body.appendChild(overlay);
+
+            // Add animation
+            setTimeout(() => {
+                popup.style.transform = 'scale(1)';
+            }, 10);
+        }
+
+        function confirmPhaseTransition() {
+            addToLog(`⚠️ OPERADOR PROSSEGUIU PARA NORMALIZAÇÃO COM LIBERAÇÃO INCOMPLETA`, 'info');
+            addToLog(`🔓 Acesso à normalização autorizado via painel de controle`, 'success');
+            closePhaseTransitionPopup();
+            
+            switchPage('normalization');
+            addToLog('🔄 Mudando para a página de Normalização...', 'info');
+        }
+
+        function cancelPhaseTransition() {
+            addToLog(`✅ Operador optou por permanecer na fase de Liberação`, 'info');
+            closePhaseTransitionPopup();
+        }
+
+        function closePhaseTransitionPopup() {
+            const overlay = document.getElementById('phaseTransitionOverlay');
+            if (overlay) {
+                const popup = overlay.querySelector('div');
+                popup.style.transform = 'scale(0.8)';
+                popup.style.opacity = '0';
+                
+                setTimeout(() => {
+                    overlay.remove();
+                }, 200);
+            }
+        }
+
+        function resetProcedure() {
+            // Show confirmation popup before resetting
+            showResetConfirmation();
+        }
+
+        function showResetConfirmation() {
+            // Create confirmation overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50';
+            overlay.id = 'resetConfirmationOverlay';
+
+            // Create confirmation popup
+            const popup = document.createElement('div');
+            popup.className = 'bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4 transform transition-all duration-300 scale-95';
+            
+            popup.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-4">⚠️</div>
+                    <h2 class="text-2xl font-bold text-red-600 mb-2">CONFIRMAÇÃO DE REINICIALIZAÇÃO</h2>
+                    <p class="text-lg text-gray-600">Esta ação não pode ser desfeita</p>
+                </div>
+
+                <div class="bg-red-50 border-2 border-red-300 rounded-xl p-6 mb-6">
+                    <h3 class="text-lg font-bold text-red-800 mb-3 flex items-center">
+                        🔄 O que será reiniciado:
+                    </h3>
+                    <ul class="text-sm text-red-700 space-y-2">
+                        <li>• <strong>Todas as etapas</strong> voltarão ao estado inicial</li>
+                        <li>• <strong>Todo o progresso</strong> será perdido</li>
+                        <li>• <strong>Log de execução</strong> será limpo</li>
+                        <li>• <strong>Etapas concluídas</strong> serão desmarcadas</li>
+                        <li>• <strong>Etapas adiadas/puladas</strong> serão resetadas</li>
+                    </ul>
+                </div>
+
+                <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-yellow-800 font-medium">
+                        ⚠️ <strong>ATENÇÃO:</strong> Certifique-se de ter exportado o log se necessário, pois todos os dados serão perdidos permanentemente.
+                    </p>
+                </div>
+
+                <div class="flex space-x-4">
+                    <button 
+                        onclick="cancelReset()"
+                        class="flex-1 py-4 px-6 bg-gray-500 hover:bg-gray-600 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        ❌ CANCELAR
+                    </button>
+                    <button 
+                        onclick="confirmReset()"
+                        class="flex-1 py-4 px-6 bg-red-600 hover:bg-red-700 text-white font-bold text-lg rounded-xl transition-all duration-200 transform hover:scale-105"
+                    >
+                        🔄 CONFIRMAR REINICIALIZAÇÃO
+                    </button>
+                </div>
+
+                <div class="mt-4 text-center">
+                    <p class="text-xs text-gray-500">
+                        Esta ação irá reiniciar completamente o procedimento
+                    </p>
+                </div>
+            `;
+
+            overlay.appendChild(popup);
+            document.body.appendChild(overlay);
+
+            // Add animation
+            setTimeout(() => {
+                popup.style.transform = 'scale(1)';
+            }, 10);
+        }
+
+        function confirmReset() {
+            addToLog('🔄 REINICIALIZAÇÃO CONFIRMADA pelo operador', 'info');
+            closeResetPopup();
+            executeReset();
+        }
+
+        function cancelReset() {
+            addToLog('❌ Reinicialização cancelada pelo operador', 'info');
+            closeResetPopup();
+        }
+
+        function closeResetPopup() {
+            const overlay = document.getElementById('resetConfirmationOverlay');
+            if (overlay) {
+                const popup = overlay.querySelector('div');
+                popup.style.transform = 'scale(0.8)';
+                popup.style.opacity = '0';
+                
+                setTimeout(() => {
+                    overlay.remove();
+                }, 200);
+            }
+        }
+
+        function executeReset() {
+            // Store current page before reset
+            const wasInNormalization = currentPage === 'normalization';
+            
+            // Reset all states
+            steps.forEach(step => {
+                stepStates[step.id] = 'disabled';
+                // Clear execution times
+                delete stepStates[`${step.id}_time`];
+            });
+            
+            currentStep = 1;
+            completedSteps = 0;
+            
+            // Reset normalization access authorization
+            normalizationAccessAuthorized = false;
+            
+            // Reset pause state
+            if (isPaused) {
+                togglePause(); // This will unpause and reset UI
+            }
+            
+            // If user was in normalization, keep them there but reset authorization
+            if (wasInNormalization) {
+                // Keep current page as normalization but reset authorization
+                currentPage = 'normalization';
+                // Reset normalization access - user will see blocked interface
+                normalizationAccessAuthorized = false;
+            } else {
+                // Reset to liberation page
+                currentPage = 'liberation';
+            }
+            
+            // Reset start button
+            const startBtn = document.getElementById('startBtn');
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.textContent = '🚀 INICIAR MANOBRA';
+                startBtn.className = 'px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold text-lg rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none';
+            }
+            
+            // Reset start normalization button
+            const startNormalizationBtn = document.getElementById('startNormalizationBtn');
+            if (startNormalizationBtn) {
+                startNormalizationBtn.disabled = false;
+                startNormalizationBtn.textContent = '🔓 INICIAR NORMALIZAÇÃO';
+                startNormalizationBtn.className = 'px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold text-lg rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none';
+            }
+            
+            // Clear log
+            const log = document.getElementById('executionLog');
+            log.innerHTML = '<p class="text-gray-500 italic">Procedimento reiniciado. Pronto para iniciar...</p>';
+            
+            // Disable export button
+            const exportBtn = document.getElementById('exportBtn');
+            if (exportBtn) {
+                exportBtn.disabled = true;
+            }
+            
+            // Reset next button
+            const nextBtn = document.getElementById('nextBtn');
+            nextBtn.textContent = '▶️ Próxima Etapa';
+            nextBtn.disabled = false;
+            
+            // Reset skip and defer buttons
+            const skipBtn = document.getElementById('skipBtn');
+            const deferBtn = document.getElementById('deferBtn');
+            skipBtn.disabled = true;
+            deferBtn.disabled = true;
+            
+            // Update tab styles based on current page
+            const liberationTab = document.getElementById('liberationTab');
+            const normalizationTab = document.getElementById('normalizationTab');
+            
+            if (currentPage === 'liberation') {
+                liberationTab.className = 'flex-1 py-3 px-4 rounded-md font-semibold transition-all duration-200 bg-red-500 text-white';
+                normalizationTab.className = 'flex-1 py-3 px-4 rounded-md font-semibold transition-all duration-200 bg-gray-200 text-gray-600 hover:bg-gray-300';
+            } else {
+                liberationTab.className = 'flex-1 py-3 px-4 rounded-md font-semibold transition-all duration-200 bg-gray-200 text-gray-600 hover:bg-gray-300';
+                normalizationTab.className = 'flex-1 py-3 px-4 rounded-md font-semibold transition-all duration-200 bg-green-500 text-white';
+            }
+            
+            renderSteps();
+            updateControlButtonsState();
+            addToLog('🔄 Procedimento reiniciado com sucesso', 'success');
+            
+            if (wasInNormalization) {
+                addToLog('🔒 Acesso à normalização resetado - Use "Próxima Etapa" no painel para acessar novamente', 'info');
+            } else {
+                addToLog('🔒 Acesso à normalização resetado - Use "Próxima Etapa" para acessar', 'info');
+            }
+        }
+
+        function updateProgress() {
+            let currentPageSteps, currentPageCompleted;
+            
+            if (currentPage === 'liberation') {
+                currentPageSteps = steps.filter(s => s.phase === 'LIBERAÇÃO');
+                currentPageCompleted = currentPageSteps.filter(s => stepStates[s.id] === 'completed').length;
+            } else {
+                currentPageSteps = steps.filter(s => s.phase === 'NORMALIZAÇÃO');
+                currentPageCompleted = currentPageSteps.filter(s => stepStates[s.id] === 'completed').length;
+            }
+            
+            const progressPercent = (currentPageCompleted / currentPageSteps.length) * 100;
+            document.getElementById('progressBar').style.width = progressPercent + '%';
+            document.getElementById('progressText').textContent = `${currentPageCompleted}/${currentPageSteps.length}`;
+        }
+
+        function addToLog(message, type) {
+            const log = document.getElementById('executionLog');
+            const timestamp = new Date().toLocaleTimeString('pt-BR');
+            
+            // Remove initial message if it exists
+            if (log.children.length === 1 && log.children[0].classList.contains('italic')) {
+                log.innerHTML = '';
+                // Enable export button when first real log entry is added
+                const exportBtn = document.getElementById('exportBtn');
+                if (exportBtn) {
+                    exportBtn.disabled = false;
+                }
+            }
+
+            const logEntry = document.createElement('div');
+            logEntry.className = `flex items-center justify-between p-3 rounded-lg ${
+                type === 'success' ? 'bg-green-50 border border-green-200' : 
+                type === 'info' ? 'bg-blue-50 border border-blue-200' : 
+                'bg-gray-50 border border-gray-200'
+            }`;
+            
+            logEntry.innerHTML = `
+                <span class="text-sm ${
+                    type === 'success' ? 'text-green-800' : 
+                    type === 'info' ? 'text-blue-800' : 
+                    'text-gray-800'
+                }">${message}</span>
+                <span class="text-xs text-gray-500">${timestamp}</span>
+            `;
+            
+            log.insertBefore(logEntry, log.firstChild);
+        }
+
+        function exportLogToPDF() {
+            const log = document.getElementById('executionLog');
+            const logEntries = Array.from(log.children).reverse(); // Reverse to get chronological order
+            
+            if (logEntries.length === 0 || (logEntries.length === 1 && logEntries[0].classList.contains('italic'))) {
+                alert('Não há dados no log para exportar.');
+                return;
+            }
+
+            // Create PDF content
+            let pdfContent = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Log de Execução - Procedimento 04B1</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            line-height: 1.6;
+            color: #333;
+        }
+        .header { 
+            text-align: center; 
+            border-bottom: 2px solid #333; 
+            padding-bottom: 20px; 
+            margin-bottom: 30px;
+        }
+        .header h1 { 
+            color: #d32f2f; 
+            margin: 0;
+            font-size: 24px;
+        }
+        .header p { 
+            margin: 5px 0; 
+            color: #666;
+        }
+        .log-entry { 
+            margin: 10px 0; 
+            padding: 12px; 
+            border-left: 4px solid #ddd;
+            background: #f9f9f9;
+        }
+        .log-entry.success { 
+            border-left-color: #4caf50; 
+            background: #f1f8e9;
+        }
+        .log-entry.info { 
+            border-left-color: #2196f3; 
+            background: #e3f2fd;
+        }
+        .timestamp { 
+            float: right; 
+            color: #888; 
+            font-size: 12px;
+        }
+        .message { 
+            font-weight: 500;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+        }
+        .summary {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .summary h3 {
+            margin-top: 0;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚡ LOG DE EXECUÇÃO - PROCEDIMENTO 04B1</h1>
+        <p><strong>Tipo:</strong> ${currentPage === 'liberation' ? 'Liberação' : 'Normalização'} Elétrica</p>
+        <p><strong>Data de Geração:</strong> ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}</p>
+        <p><strong>Equipamento:</strong> 04B1-CTM</p>
+    </div>
+
+    <div class="summary">
+        <h3>📊 Resumo da Execução</h3>
+        <p><strong>Total de Etapas Concluídas:</strong> ${completedSteps}</p>
+        <p><strong>Fase Atual:</strong> ${currentPage === 'liberation' ? 'Liberação' : 'Normalização'}</p>
+        <p><strong>Status:</strong> ${completedSteps === steps.length ? 'Procedimento Completo' : 'Em Andamento'}</p>
+    </div>
+
+    <h3>📋 Registro Cronológico de Atividades</h3>
+`;
+
+            // Add log entries
+            logEntries.forEach((entry, index) => {
+                if (entry.classList.contains('italic')) return; // Skip initial message
+                
+                const messageElement = entry.querySelector('span:first-child');
+                const timestampElement = entry.querySelector('span:last-child');
+                
+                if (messageElement && timestampElement) {
+                    const message = messageElement.textContent;
+                    const timestamp = timestampElement.textContent;
+                    
+                    let entryClass = 'log-entry';
+                    if (entry.classList.contains('bg-green-50')) entryClass += ' success';
+                    else if (entry.classList.contains('bg-blue-50')) entryClass += ' info';
+                    
+                    pdfContent += `    <div class="${entryClass}">
+        <span class="timestamp">${timestamp}</span>
+        <div class="message">${message}</div>
+    </div>`;
+                }
+            });
+
+            pdfContent += `
+    <div class="footer">
+        <p><strong>RTM-CTM-04B1</strong> | Ed.: 2 | 28/09/2020</p>
+        <p>Elaboração: Maria Amadélia Lopes</p>
+        <p>Documento gerado automaticamente pelo Sistema de Liberação 04B1</p>
+    </div>
+</body>
+</html>`;
+
+            // Create and download PDF
+            const blob = new Blob([pdfContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            const currentDate = new Date().toISOString().slice(0, 10);
+            const currentTime = new Date().toTimeString().slice(0, 5).replace(':', '');
+            const filename = `Log_Procedimento_04B1_${currentPage}_${currentDate}_${currentTime}.html`;
+            
+            a.href = url;
+            a.download = filename;
+            a.style.display = 'none';
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // Show success message
+            addToLog(`📄 Log exportado como: ${filename}`, 'success');
+        }
+
+        function showSuccessAnimation(id) {
+            const cards = document.querySelectorAll('.step-card');
+            const stepIndex = steps.findIndex(s => s.id === id);
+            if (stepIndex !== -1 && cards[stepIndex]) {
+                const card = cards[stepIndex];
+                card.style.transform = 'scale(1.02)';
+                card.style.boxShadow = '0 0 20px rgba(34, 197, 94, 0.3)';
+                setTimeout(() => {
+                    card.style.transform = '';
+                    card.style.boxShadow = '';
+                }, 500);
+            }
+        }
+
+        // Initialize the page
+        renderSteps();
+        addToLog('Sistema de liberação e normalização 04B1 inicializado', 'info');
+        addToLog('Clique em "INICIAR MANOBRA" para começar o procedimento...', 'info');
+    </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'99d074a99737e2b7',t:'MTc2Mjg5MjA2NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

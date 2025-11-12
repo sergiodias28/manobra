@@ -1,0 +1,8 @@
+Item 1.8 comandos 'sage_ctrl CTM:34C3-2:89 1' e 'sage_ctrl CTM:34W1-2:89 1'
+Item 1.9 comandos 'sage_ctrl CTM:34W1-1:89 0' e 'sage_ctrl CTM:34C3-1:89 0'
+Item 1.10 comando 'sage_ctrl CTM:14D1:52 0'
+Item 1.11 comando 'sage_ctrl CTM:34D1-1:89 0'
+Item 2.6 comando 'sage_ctrl CTM:34D1-1:89 1'
+Item 2.11 comando 'sage_ctrl CTM:14D1:52 1'
+Item 2.12 comandos 'sage_ctrl CTM:34W1-1:89 1' e 'sage_ctrl CTM:34C3-1:89 1'
+Item 2.13 comandos 'sage_ctrl CTM:34C3-2:89 0' e 'sage_ctrl CTM:34W1-2:89 0'

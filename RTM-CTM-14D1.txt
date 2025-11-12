@@ -1,0 +1,187 @@
+ 
+ 
+PERÍODO:
+REFERÊNCIA:
+RESPONSÁVEIS:
+
+
+
+
+1
+LIBERAÇÃO
+HORA
+
+1.1
+CTM
+Receber do responsável solicitação liberação 14D1.
+:
+
+1.2
+CTM
+Solicitar COOS liberação 14D1.
+:
+
+1.3
+COOS
+Solicitar COSR-NE liberação 14D1/CTM.
+:
+
+1.4
+COSR-NE
+Autorizar COOS liberação 14D1/CTM.
+:
+
+1.5
+COOS
+Autorizar CTM liberação 14D1.
+:
+
+1.6
+CTM
+Confirmar 14D1 fechado.
+:
+
+1.7
+CTM
+Fechar 34F9-1.
+:
+
+1.8
+CTM
+Abrir 34F9-2.
+:
+
+1.9
+CTM
+Abrir 14D1.
+:
+
+1.10
+CTM
+Abrir 34D1-1 e 34D1-2.
+:
+
+1.11
+CTM
+Bloquear comando elétrico 34D1-1 e 34D1-2.
+:
+
+1.12
+CTM
+Entregar 14D1 isolado ao responsável.
+:
+
+1.13
+CTM
+Informar COOS conclusão liberação 14D1.
+:
+
+Assinatura:
+
+Data:
+/	/
+
+
+2
+NORMALIZAÇÃO
+HORA
+
+2.1
+CTM
+Receber do responsável solicitação para teste de energização 14D1.
+:
+
+2.2
+CTM
+Confirmar ausência de aterramento temporário.
+:
+
+2.3
+CTM
+Solicitar COOS normalização 14D1.
+:
+
+2.4
+COOS
+Autorizar CTM iniciar normalização 14D1.
+:
+
+2.5
+CTM
+Desbloquear comando elétrico 34D1-1 e 34D1-2.
+:
+
+2.6
+CTM
+Fechar 34D1-1 e 34D1-2.
+:
+
+2.7
+CTM
+Informar COOS conclusão manobras.
+:
+
+2.8
+COOS
+Solicitar COSR-NE autorização para teste de energização 14D1/CTM.
+:
+
+2.9
+COSR-NE
+Autorizar COOS efetuar teste de energização 14D1/CTM.
+:
+
+2.10
+COOS
+Fechar 14D1/CTM.
+:
+
+2.11
+COOS/CTM
+Informar ao responsável a energização 14D1.
+:
+
+2.12
+COOS/CTM
+Receber do responsável 14D1 livre para operação.
+:
+
+2.13
+COOS
+Informar COSR-NE disponibilidade 14D1/CTM.
+:
+
+2.14
+COSR-NE
+Autorizar COOS normalização 14D1/CTM.
+:
+
+2.15
+COOS
+Autorizar CTM prosseguir normalização 14D1.
+:
+
+2.16
+CTM
+Fechar 34F9-2.
+:
+
+2.17
+CTM
+Abrir 34F9-1.
+:
+
+2.18
+CTM
+Informar COOS conclusão normalização 14D1.
+:
+
+Assinatura:
+
+Data:
+/	/
+
+
+
+
+
