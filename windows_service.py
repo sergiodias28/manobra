@@ -20,7 +20,7 @@ from server.app import app  # noqa: E402
 class ManobraFlaskService(win32serviceutil.ServiceFramework):
     _svc_name_ = "ManobraFlaskService"
     _svc_display_name_ = "Manobra API Service"
-    _svc_description_ = "Serviço Flask que expõe a API de manobra para execução SSH."
+    _svc_description_ = "Servi?o Flask que exp?e a API de manobra para execu??o SSH."
 
     def __init__(self, args):
         win32serviceutil.ServiceFramework.__init__(self, args)

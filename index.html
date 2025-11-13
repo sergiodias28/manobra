@@ -488,6 +488,9 @@
         let completedSteps = 0;
         let currentPage = 'liberation'; // 'liberation' or 'normalization'
         let isPaused = false;
+        // Flags para manter o estado de início das fases
+        let liberationStarted = false;
+        let normalizationStarted = false;
 
         // Initialize step states
         steps.forEach(step => {
@@ -571,6 +574,10 @@
             const infoHeader = document.getElementById('infoHeader');
             
             if (currentPage === 'liberation') {
+                const startBtnHtml = liberationStarted
+                    ? `<button id="startBtn" disabled class="px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold text-lg rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">✅ MANOBRA INICIADA</button>`
+                    : `<button onclick="startProcedure()" id="startBtn" class="px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold text-lg rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">🚀 INICIAR MANOBRA</button>`;
+                
                 infoHeader.innerHTML = `
                     <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -638,9 +645,7 @@
                         
                         <!-- Start Procedure Button -->
                         <div class="mt-6 text-center">
-                            <button onclick="startProcedure()" id="startBtn" class="px-8 py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold text-lg rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
-                                🚀 INICIAR MANOBRA
-                            </button>
+                            ${startBtnHtml}
                         </div>
                     </div>
                 `;
@@ -690,6 +695,10 @@
                         </div>
                     `;
                 } else {
+                    const startNormalizationBtnHtml = normalizationStarted
+                        ? `<button id="startNormalizationBtn" disabled class="px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold text-lg rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">✅ NORMALIZAÇÃO INICIADA</button>`
+                        : `<button onclick="startNormalization()" id="startNormalizationBtn" class="px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold text-lg rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">🔓 INICIAR NORMALIZAÇÃO</button>`;
+                    
                     infoHeader.innerHTML = `
                         <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
                             <div class="bg-green-50 border border-green-200 rounded-lg p-6">
@@ -702,9 +711,7 @@
                                 
                                 <!-- Start Normalization Button -->
                                 <div class="text-center">
-                                    <button onclick="startNormalization()" id="startNormalizationBtn" class="px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold text-lg rounded-xl shadow-lg transform transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
-                                        🔓 INICIAR NORMALIZAÇÃO
-                                    </button>
+                                    ${startNormalizationBtnHtml}
                                 </div>
                             </div>
                         </div>
@@ -719,8 +726,9 @@
         function startProcedure() {
             // Enable first step
             stepStates[1] = 'ready';
+            liberationStarted = true;
             
-            // Disable start button
+            // Disable start button immediately in current DOM (in case de-dup render is delayed)
             const startBtn = document.getElementById('startBtn');
             if (startBtn) {
                 startBtn.disabled = true;
@@ -743,8 +751,9 @@
         function startNormalization() {
             // Enable first normalization step (step 15)
             stepStates[15] = 'ready';
+            normalizationStarted = true;
             
-            // Disable start normalization button
+            // Disable start normalization button immediately
             const startNormalizationBtn = document.getElementById('startNormalizationBtn');
             if (startNormalizationBtn) {
                 startNormalizationBtn.disabled = true;
@@ -826,7 +835,7 @@
                     
                     <button 
                         onclick="executeStep(${step.id})" 
-                        ${(!isReady && !isDeferred) || isExecuting || isSkipped || shouldBlockNormalization ? 'disabled' : ''} 
+                        ${(!isReady && !isDeferred) || isExecuting || isSkipped || shouldBlockNormalization ? 'disabled' : ''}
                         class="execute-btn w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-200 ${
                             shouldBlockNormalization
                                 ? 'bg-gray-400 cursor-not-allowed'
@@ -1531,9 +1540,6 @@
             setTimeout(() => {
                 popup.style.transform = 'scale(1)';
             }, 10);
-
-            // Store step for confirmation
-            window.pendingDeferStep = step;
         }
 
         function confirmSkip(stepId) {
@@ -1929,21 +1935,21 @@
                             <span class="font-bold text-amber-900">${executingSteps.length}</span>
                         </div>
                         ` : ''}
-                        
+
                         ${readySteps.length > 0 ? `
                         <div class="flex items-center justify-between bg-blue-100 p-3 rounded-lg">
                             <span class="font-semibold text-blue-800">🚀 Etapas Prontas para Execução:</span>
                             <span class="font-bold text-blue-900">${readySteps.length}</span>
                         </div>
                         ` : ''}
-                        
+
                         ${deferredSteps.length > 0 ? `
                         <div class="flex items-center justify-between bg-purple-100 p-3 rounded-lg">
                             <span class="font-semibold text-purple-800">⏰ Etapas Adiadas:</span>
                             <span class="font-bold text-purple-900">${deferredSteps.length}</span>
                         </div>
                         ` : ''}
-                        
+
                         ${disabledSteps.length > 0 ? `
                         <div class="flex items-center justify-between bg-gray-100 p-3 rounded-lg">
                             <span class="font-semibold text-gray-800">🔒 Etapas Bloqueadas:</span>
@@ -1994,6 +2000,8 @@
         function confirmPhaseTransition() {
             addToLog(`⚠️ OPERADOR PROSSEGUIU PARA NORMALIZAÇÃO COM LIBERAÇÃO INCOMPLETA`, 'info');
             addToLog(`🔓 Acesso à normalização autorizado via painel de controle`, 'success');
+            // Autoriza acesso à normalização para evitar tela bloqueada
+            normalizationAccessAuthorized = true;
             closePhaseTransitionPopup();
             
             switchPage('normalization');
@@ -2376,6 +2384,7 @@
             });
 
             pdfContent += `
+
     <div class="footer">
         <p><strong>RTM-CTM-04B1</strong> | Ed.: 2 | 28/09/2020</p>
         <p>Elaboração: Maria Amadélia Lopes</p>
@@ -2383,6 +2392,7 @@
     </div>
 </body>
 </html>`;
+
 
             // Create and download PDF
             const blob = new Blob([pdfContent], { type: 'text/html' });
