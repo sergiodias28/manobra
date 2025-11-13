@@ -1,10 +1,11 @@
 # manobra
 Um repositório de testes para o projeto de dissertação
 
-Aqui serão escritos os trechos de código para o projeto
+Aqui estão escritos os trechos de código para o projeto e arquivos utilizados
 
-Atualizando para teste git
+Atualizado para manobra.git
 
-EDITANDO AGORA 07 AGO 11 55
+Início em 10/11/2025
+
 
 
