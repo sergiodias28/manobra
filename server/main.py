@@ -195,6 +195,21 @@ def api_config():
     return jsonify({'ok': True, 'host': SSH_HOST, 'user': SSH_USER, 'port': SSH_PORT})
 
 
+# Flag de conclusão
+CONCLUIDO = False
+
+@app.route('/api/concluir', methods=['GET', 'POST'])
+def api_concluir():
+    global CONCLUIDO
+    if request.method == 'POST':
+        CONCLUIDO = True
+    return jsonify({'ok': True, 'concluido': CONCLUIDO})
+
+
+# Ponto de entrada para execução via `python -m server.main` ou `flask run` (FLASK_APP=server.main)
 if __name__ == '__main__':
     _ensure_commands_loaded()
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', '5000')), debug=True)
+    debug_flag = os.environ.get('FLASK_DEBUG', '1') == '1'
+    # Se executado diretamente (sem pacote), desativa reloader para evitar SystemExit ao tentar importar 'main'
+    use_reloader = debug_flag and (__package__ is not None and __package__ != '')
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', '5000')), debug=debug_flag, use_reloader=use_reloader)

@@ -14,7 +14,7 @@ if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
 # Import Flask app
-from server.app import app  # noqa: E402
+from server.main import app  # noqa: E402
 
 
 class ManobraFlaskService(win32serviceutil.ServiceFramework):
